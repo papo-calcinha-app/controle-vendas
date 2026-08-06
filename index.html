@@ -711,10 +711,26 @@ async function driveReq(method, url, body){
   const ct = res.headers.get('content-type')||'';
   return ct.includes('json') ? res.json() : res.text();
 }
+// Escapa aspas simples e barras invertidas antes de usar um valor dentro de
+// uma query do Drive (name='...'). Nomes de lote/cliente digitados pelo
+// usuário podem conter aspas simples — sem isso a query quebra e a busca
+// falha silenciosamente, fazendo o lote/cliente parecer "sumido" mesmo com
+// os dados intactos no Drive.
+function escDriveQ(s){
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
 async function buscarOuCriarPasta(nome, parentId){
-  const q = `name='${nome}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const q = `name='${escDriveQ(nome)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
     + (parentId ? ` and '${parentId}' in parents` : '');
-  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  // orderBy=createdTime é essencial: o Drive permite várias pastas com o mesmo
+  // nome, e uma falha de rede/consistência eventual pode fazer o app criar uma
+  // segunda pasta vazia. Sem ordenação, a busca podia retornar ora a pasta
+  // certa, ora a duplicata vazia, e os dados pareciam ter sumido. Pegando
+  // sempre a mais antiga, o resultado é estável.
+  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime&fields=files(id)`);
+  if(r.files && r.files.length > 1){
+    console.warn(`Encontradas ${r.files.length} pastas "${nome}" — usando a mais antiga. Vale limpar as duplicatas no Drive.`);
+  }
   if(r.files && r.files.length > 0) return r.files[0].id;
   const body = {name:nome, mimeType:'application/vnd.google-apps.folder'};
   if(parentId) body.parents = [parentId];
@@ -722,8 +738,11 @@ async function buscarOuCriarPasta(nome, parentId){
   return f.id;
 }
 async function buscarOuCriarArquivo(nome, parentId, conteudoInicial){
-  const q = `name='${nome}' and trashed=false and '${parentId}' in parents`;
-  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  const q = `name='${escDriveQ(nome)}' and trashed=false and '${parentId}' in parents`;
+  const r = await driveReq('GET', `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime&fields=files(id)`);
+  if(r.files && r.files.length > 1){
+    console.warn(`Encontrados ${r.files.length} arquivos "${nome}" nessa pasta — usando o mais antigo. Vale limpar as duplicatas no Drive.`);
+  }
   if(r.files && r.files.length > 0) return r.files[0].id;
   const meta = new Blob([JSON.stringify({name:nome, mimeType:'application/json', parents:[parentId]})], {type:'application/json'});
   const dados = new Blob([JSON.stringify(conteudoInicial)], {type:'application/json'});
