@@ -425,6 +425,9 @@ label.btn{display:flex}
 <div class="modal-overlay" id="modal-cliente">
   <div class="modal">
     <div class="modal-title">Cliente</div>
+    <button type="button" class="btn btn-sm btn-ghost" id="btn-importar-contato" onclick="importarContato()" style="display:none;margin-bottom:12px">
+      <svg class="icon" style="width:15px;height:15px"><use href="#i-person"/></svg> Importar da agenda
+    </button>
     <form id="form-cliente" onsubmit="event.preventDefault();salvarCliente()">
       <div class="slabel">Nome</div>
       <input type="text" id="cliente-nome" class="field-input" name="name" autocomplete="name">
@@ -1867,6 +1870,24 @@ function iniciar(){
   configurarInstalacao();
   registrarServiceWorker();
   initGoogle();
+  // Contact Picker API só existe no Chrome/Android -- no Safari/iPhone o
+  // botão fica escondido e quem usa lá conta com o autofill nativo do
+  // formulário (autocomplete="name"/"tel").
+  if('contacts' in navigator && 'ContactsManager' in window){
+    document.getElementById('btn-importar-contato').style.display='flex';
+  }
+}
+async function importarContato(){
+  try{
+    const props = ['name','tel'];
+    const contatos = await navigator.contacts.select(props, {multiple:false});
+    if(!contatos.length) return;
+    const c = contatos[0];
+    if(c.name && c.name.length) document.getElementById('cliente-nome').value = c.name[0];
+    if(c.tel && c.tel.length) document.getElementById('cliente-telefone').value = c.tel[0].replace(/[^\d+]/g,'');
+  }catch(e){
+    console.warn('Contact Picker falhou:', e);
+  }
 }
 document.addEventListener('DOMContentLoaded', iniciar);
 </script>
