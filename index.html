@@ -18,14 +18,20 @@
   --text:#111;--text2:#666;--text3:#999;
   --border:#ddd;--border2:#bbb;
   --primary:#b5406b;--primary-fg:#fff;--primary-bg:rgba(181,64,107,.12);
-  --danger:#c0392b;--radius:14px;--radius-sm:10px;
+  --danger:#c0392b;--ok:#2e7d32;--warn:#b8860b;--radius:14px;--radius-sm:10px;
+  --ok-bg:rgba(46,125,50,.13);--warn-bg:rgba(184,134,11,.13);--danger-bg:rgba(192,57,43,.13);
 }
+/* --danger/--ok/--warn como texto sobre fundo escuro ficavam com contraste
+   baixo (cor "escura" sobre fundo quase preto) -- ganham par mais claro pro
+   tema escuro, igual foi feito no restante da paleta. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
     --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
     --border:#38383a;--border2:#545456;
     --primary:#e46a92;--primary-fg:#1c1c1e;--primary-bg:rgba(228,106,146,.16);
+    --danger:#e57368;--ok:#6fcf73;--warn:#e0a930;
+    --ok-bg:rgba(111,207,115,.16);--warn-bg:rgba(224,169,48,.16);--danger-bg:rgba(229,115,104,.16);
   }
 }
 [data-theme="dark"]{
@@ -33,6 +39,16 @@
   --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
   --border:#38383a;--border2:#545456;
   --primary:#e46a92;--primary-fg:#1c1c1e;--primary-bg:rgba(228,106,146,.16);
+  --danger:#e57368;--ok:#6fcf73;--warn:#e0a930;
+  --ok-bg:rgba(111,207,115,.16);--warn-bg:rgba(224,169,48,.16);--danger-bg:rgba(229,115,104,.16);
+}
+[data-theme="light"]{
+  --bg:#fff;--bg2:#f6f6f6;--bg3:#ececec;
+  --text:#111;--text2:#666;--text3:#999;
+  --border:#ddd;--border2:#bbb;
+  --primary:#b5406b;--primary-fg:#fff;--primary-bg:rgba(181,64,107,.12);
+  --danger:#c0392b;--ok:#2e7d32;--warn:#b8860b;
+  --ok-bg:rgba(46,125,50,.13);--warn-bg:rgba(184,134,11,.13);--danger-bg:rgba(192,57,43,.13);
 }
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:16px;overscroll-behavior:none;padding-bottom:24px}
 .hdr{padding:14px 16px 10px;border-bottom:.5px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:20}
@@ -72,9 +88,9 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
 .vc-nome{font-weight:600;font-size:14px}
 .vc-info{font-size:13px;color:var(--text2)}
 .badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
-.badge-pago{background:#2e7d3222;color:#2e7d32}
-.badge-parcial{background:#b8860b22;color:#b8860b}
-.badge-pendente{background:#c0392b22;color:#c0392b}
+.badge-pago{background:var(--ok-bg);color:var(--ok)}
+.badge-parcial{background:var(--warn-bg);color:var(--warn)}
+.badge-pendente{background:var(--danger-bg);color:var(--danger)}
 .badge-interno{background:var(--bg3);color:var(--text2)}
 .alert{border-radius:var(--radius-sm);padding:12px 14px;font-size:13px}
 .a-warn{background:#b8860b18;color:var(--text)}
@@ -459,7 +475,12 @@ let qrStream=null;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatDate(iso){ if(!iso) return '—'; const p=iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
-function hojeISO(){ return new Date().toISOString().slice(0,10); }
+function hojeISO(){
+  // toISOString() sempre retorna UTC -- perto da meia-noite no Brasil (UTC-3),
+  // a data "pulava" pro dia seguinte. Usa os componentes locais.
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function formatMoney(cents){ const n=(cents||0)/100; return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 function mascaraValor(el){
@@ -471,16 +492,27 @@ function mascaraValor(el){
 }
 
 // ─── FOTOS DO PRODUTO ─────────────────────────────────────────
+// Fotos de câmera saem em 8-12+ megapixels -- muito além do que uma foto de
+// referência de produto precisa (nem existe geração de PDF aqui pra
+// justificar isso). Sem redimensionar, cada foto ia cheia pro localStorage
+// e pro Drive, estourando a cota do localStorage bem mais rápido. Limita o
+// lado maior a 1600px, mantendo a correção de orientação já existente.
+const FOTO_MAX_DIM = 1600;
 function corrigirOrientacaoImagem(file){
   return new Promise((resolve, reject)=>{
     if(window.createImageBitmap){
       createImageBitmap(file, {imageOrientation:'from-image'}).then(bitmap=>{
+        let w=bitmap.width, h=bitmap.height;
+        if(w>FOTO_MAX_DIM||h>FOTO_MAX_DIM){
+          const escala=FOTO_MAX_DIM/Math.max(w,h);
+          w=Math.round(w*escala); h=Math.round(h*escala);
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
         bitmap.close && bitmap.close();
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
       }).catch(()=>{
         const reader = new FileReader();
         reader.onload = e => resolve(e.target.result);
@@ -801,7 +833,29 @@ async function processarFotosParaSalvar(){
     }
   }
 }
-async function salvarNoDrive(){
+// O debounce de 400ms em salvar() já evita disparar uma gravação a cada
+// tecla, mas se salvarNoDrive() ainda estiver rodando (aguardando o Drive)
+// quando o timer disparar de novo, duas gravações do mesmo arquivo podiam
+// rodar ao mesmo tempo -- e se a resposta da mais antiga chegasse depois da
+// mais nova, ela sobrescrevia o Drive com dados desatualizados. Essa fila
+// garante que só uma gravação roda por vez.
+let salvarNoDriveEmAndamento=null;
+let salvarNoDrivePendente=false;
+
+function salvarNoDrive(){
+  salvarNoDrivePendente=true;
+  if(salvarNoDriveEmAndamento) return salvarNoDriveEmAndamento;
+  salvarNoDriveEmAndamento=(async()=>{
+    while(salvarNoDrivePendente){
+      salvarNoDrivePendente=false;
+      await salvarNoDriveUmaVez();
+    }
+    salvarNoDriveEmAndamento=null;
+  })();
+  return salvarNoDriveEmAndamento;
+}
+
+async function salvarNoDriveUmaVez(){
   if(!accessToken || !dadosFileId) return;
   setSyncStatus('sincronizando...');
   try{
@@ -1035,11 +1089,11 @@ function abrirDetalheVenda(id){
   document.getElementById('vd-fotos-list').innerHTML = (v.fotos||[]).length
     ? v.fotos.map(f=> f.data
         ? `<div class="thumb"><img src="${f.data}" alt=""><span class="tn">${escapeHtml(f.name)}</span></div>`
-        : `<div class="thumb"><span class="ti">🖼️</span><a class="tn" href="${f.driveLink}" target="_blank">${escapeHtml(f.name)}</a></div>`
+        : `<div class="thumb"><span class="ti">🖼️</span><a class="tn" href="${escapeHtml(f.driveLink)}" target="_blank">${escapeHtml(f.name)}</a></div>`
       ).join('')
     : '<div class="empty-sm">Nenhuma foto anexada</div>';
   document.getElementById('vd-link-area').innerHTML = v.linkProduto
-    ? `<a class="btn btn-ghost mt8" href="${v.linkProduto}" target="_blank">🔗 Ver produto no site do fornecedor</a>`
+    ? `<a class="btn btn-ghost mt8" href="${escapeHtml(v.linkProduto)}" target="_blank">🔗 Ver produto no site do fornecedor</a>`
     : '';
   document.getElementById('vd-btn-pagamento').style.display = v.tipo==='venda' ? 'block':'none';
   document.getElementById('vd-resumo-pagamento').style.display = v.tipo==='venda' ? 'flex':'none';
