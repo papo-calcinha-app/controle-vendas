@@ -849,8 +849,47 @@ function toast(msg){
   t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
-function openModal(id){ zTop++; const el=document.getElementById(id); el.style.zIndex=zTop; el.classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+// Modais fecham com o botão/gesto "voltar" do celular, e não só no X — cada
+// abertura empilha uma entrada de histórico; voltar consome essa entrada e
+// fecha só o modal do topo (funciona empilhado, ex: editar lote aberto de
+// dentro do detalhe do lote).
+let modalStack=[];
+let voltarDisparadoPorNos=false;
+let fechandoPorPopstate=false;
+
+function openModal(id){
+  zTop++;
+  const el=document.getElementById(id);
+  el.style.zIndex=zTop;
+  el.classList.add('open');
+  modalStack.push(id);
+  history.pushState({cvModal:id}, '', location.href);
+}
+
+function closeModal(id, opts){
+  const el=document.getElementById(id);
+  const estavaAberto=el.classList.contains('open');
+  el.classList.remove('open');
+  const idx=modalStack.lastIndexOf(id);
+  if(idx!==-1) modalStack.splice(idx,1);
+  // silent: usado ao trocar direto de um modal pra outro (ex: detalhe -> editar).
+  // history.back() é assíncrono -- encadear com um pushState do openModal
+  // logo em seguida bagunçaria a pilha do histórico. Só tira da nossa
+  // modalStack e deixa o back físico seguinte fechar o modal novo.
+  if(estavaAberto && !fechandoPorPopstate && !(opts&&opts.silent)){
+    voltarDisparadoPorNos=true;
+    history.back();
+  }
+}
+
+window.addEventListener('popstate', ()=>{
+  if(voltarDisparadoPorNos){ voltarDisparadoPorNos=false; return; }
+  if(!modalStack.length) return;
+  const topo=modalStack[modalStack.length-1];
+  fechandoPorPopstate=true;
+  closeModal(topo);
+  fechandoPorPopstate=false;
+});
 
 function estadoPadrao(){ return { versao:1, lotes:[], clientes:[], vendas:[], pagamentos:[] }; }
 function normalizarEstado(){
@@ -1483,7 +1522,7 @@ function abrirDetalheLote(id){
   document.getElementById('ld-btn-reabrir').style.display = l.status==='fechado' ? 'block':'none';
   openModal('modal-lote-detalhe');
 }
-function editarLoteAtual(){ preencherFormLote(lote(loteDetalheId)); closeModal('modal-lote-detalhe'); openModal('modal-lote'); }
+function editarLoteAtual(){ preencherFormLote(lote(loteDetalheId)); closeModal('modal-lote-detalhe', {silent:true}); openModal('modal-lote'); }
 function excluirLoteAtual(){
   const vendasDoLoteAtual = S.vendas.filter(v=>v.loteId===loteDetalheId);
   const msg = vendasDoLoteAtual.length
@@ -1543,7 +1582,7 @@ function abrirModalFecharLote(){
   avisoEl.style.display = aReceber>0 ? 'block':'none';
   avisoEl.textContent = `Ainda há ${formatMoney(aReceber)} a receber de clientes deste lote — isso não impede o fechamento.`;
   document.getElementById('fl-obs').value='';
-  closeModal('modal-lote-detalhe');
+  closeModal('modal-lote-detalhe', {silent:true});
   openModal('modal-fechar-lote');
 }
 function recalcularValorFecharLote(){
@@ -1615,7 +1654,7 @@ function editarClienteAtual(){
   document.getElementById('cliente-nome').value = c.nome;
   document.getElementById('cliente-telefone').value = c.telefone||'';
   document.getElementById('cliente-obs').value = c.observacoes||'';
-  closeModal('modal-cliente-detalhe');
+  closeModal('modal-cliente-detalhe', {silent:true});
   openModal('modal-cliente');
 }
 function salvarCliente(){
