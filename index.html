@@ -130,12 +130,20 @@ label.btn{display:flex}
 .qr-btn{flex-shrink:0;width:46px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2)}
 .qr-btn:active{background:var(--bg3)}
 .qr-btn .icon{width:18px;height:18px}
+.filtro-btn{flex:1;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:12px 13px;font-size:14px;font-family:inherit;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);cursor:pointer;text-align:left;overflow:hidden}
+.filtro-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filtro-btn.ativo{border-color:var(--primary);color:var(--primary)}
+.filtro-btn .icon{flex-shrink:0;width:14px;height:14px;color:var(--text2)}
+.filtro-item{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:.5px solid var(--border);font-size:14px;cursor:pointer}
+.filtro-item:last-child{border-bottom:none}
+.filtro-item input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--primary)}
 .screen-title{font-size:19px;font-weight:700;letter-spacing:-.2px;margin-bottom:16px}
 </style>
 </head>
 <body>
 <svg style="display:none">
 <defs>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
 <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.5 20c1-4 4-6 7.5-6s6.5 2 7.5 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
@@ -297,14 +305,14 @@ label.btn{display:flex}
   <div id="screen-vendas" class="screen">
     <h2 class="screen-title">Vendas</h2>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <select id="filtro-vendas-lote" class="field-select" onchange="renderVendas()" style="flex:1"></select>
-      <select id="filtro-vendas-status" class="field-select" onchange="renderVendas()" style="flex:1">
-        <option value="">Todos status</option>
-        <option value="pago">Pago</option>
-        <option value="parcial">Parcial</option>
-        <option value="pendente">Pendente</option>
-        <option value="interno">Interno</option>
-      </select>
+      <button type="button" class="filtro-btn" id="btn-filtro-lote" onclick="abrirFiltroLote()">
+        <span id="btn-filtro-lote-texto">Todos os lotes</span>
+        <svg class="icon"><use href="#i-chevron"/></svg>
+      </button>
+      <button type="button" class="filtro-btn" id="btn-filtro-status" onclick="abrirFiltroStatus()">
+        <span id="btn-filtro-status-texto">Todos status</span>
+        <svg class="icon"><use href="#i-chevron"/></svg>
+      </button>
     </div>
     <div id="lista-vendas"></div>
   </div>
@@ -492,6 +500,24 @@ label.btn{display:flex}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-filtro-lote">
+  <div class="modal">
+    <div class="modal-title">Filtrar por lote</div>
+    <div id="filtro-lote-lista"></div>
+    <button class="btn btn-ghost mt16" onclick="limparFiltroLote()">Limpar seleção</button>
+    <button class="btn btn-primary mt8" onclick="closeModal('modal-filtro-lote')">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-filtro-status">
+  <div class="modal">
+    <div class="modal-title">Filtrar por status</div>
+    <div id="filtro-status-lista"></div>
+    <button class="btn btn-ghost mt16" onclick="limparFiltroStatus()">Limpar seleção</button>
+    <button class="btn btn-primary mt8" onclick="closeModal('modal-filtro-status')">Fechar</button>
+  </div>
+</div>
+
 <div id="qr-video-wrap">
   <video id="qr-video" autoplay playsinline muted></video>
   <div id="qr-focus-ring" class="qr-focus-ring"></div>
@@ -527,6 +553,8 @@ let zTop=500;
 let loteEditId=null, loteDetalheId=null, fecharLoteId=null;
 let clienteEditId=null, clienteDetalheId=null, clienteContextoLancar=false;
 let vendaDetalheId=null;
+let filtroVendasLotes=[];
+let filtroVendasStatus=[];
 let deferredPrompt=null;
 let fotosAtuais=[];
 let linkProdutoAtual='';
@@ -1328,20 +1356,69 @@ function vendaCardHtml(v){
     <div class="vc-info">${v.quantidadePecas} peça(s) · ${formatMoney(v.valorTotalCents)} · ${formatDate(v.data)}${l?(' · '+escapeHtml(l.nome)):''}</div>
   </div>`;
 }
-function renderVendas(){
-  const selLote = document.getElementById('filtro-vendas-lote');
-  const anterior = selLote.value;
-  selLote.innerHTML = '<option value="">Todos os lotes</option>' +
-    S.lotes.slice().sort((a,b)=>b.criadoEm-a.criadoEm).map(l=>`<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
-  selLote.value = anterior;
+const STATUS_VENDAS = [
+  {v:'pago', label:'Pago'},
+  {v:'parcial', label:'Parcial'},
+  {v:'pendente', label:'Pendente'},
+  {v:'interno', label:'Interno'}
+];
 
-  const filtroLote = selLote.value;
-  const filtroStatus = document.getElementById('filtro-vendas-status').value;
+function renderVendas(){
+  // Remove da seleção lotes que não existem mais (ex: excluídos)
+  filtroVendasLotes = filtroVendasLotes.filter(id=>S.lotes.some(l=>l.id===id));
+
+  const lotesOrdenados = S.lotes.slice().sort((a,b)=>b.criadoEm-a.criadoEm);
+  document.getElementById('filtro-lote-lista').innerHTML = lotesOrdenados.length
+    ? lotesOrdenados.map(l=>`
+      <label class="filtro-item">
+        <input type="checkbox" ${filtroVendasLotes.includes(l.id)?'checked':''} onchange="toggleFiltroLote('${l.id}')">
+        <span>${escapeHtml(l.nome)}</span>
+      </label>`).join('')
+    : '<div class="empty-sm">Nenhum lote cadastrado</div>';
+  document.getElementById('filtro-status-lista').innerHTML = STATUS_VENDAS.map(s=>`
+    <label class="filtro-item">
+      <input type="checkbox" ${filtroVendasStatus.includes(s.v)?'checked':''} onchange="toggleFiltroStatus('${s.v}')">
+      <span>${s.label}</span>
+    </label>`).join('');
+
+  const btnLote = document.getElementById('btn-filtro-lote');
+  const btnLoteTexto = document.getElementById('btn-filtro-lote-texto');
+  if(!filtroVendasLotes.length){ btnLoteTexto.textContent='Todos os lotes'; btnLote.classList.remove('ativo'); }
+  else{
+    btnLoteTexto.textContent = filtroVendasLotes.length===1
+      ? (S.lotes.find(l=>l.id===filtroVendasLotes[0])?.nome || '1 lote')
+      : filtroVendasLotes.length+' lotes selecionados';
+    btnLote.classList.add('ativo');
+  }
+  const btnStatus = document.getElementById('btn-filtro-status');
+  const btnStatusTexto = document.getElementById('btn-filtro-status-texto');
+  if(!filtroVendasStatus.length){ btnStatusTexto.textContent='Todos status'; btnStatus.classList.remove('ativo'); }
+  else{
+    btnStatusTexto.textContent = filtroVendasStatus.length===1
+      ? STATUS_VENDAS.find(s=>s.v===filtroVendasStatus[0]).label
+      : filtroVendasStatus.length+' status selecionados';
+    btnStatus.classList.add('ativo');
+  }
+
   let lista = S.vendas.slice().sort((a,b)=>b.criadoEm-a.criadoEm);
-  if(filtroLote) lista = lista.filter(v=>v.loteId===filtroLote);
-  if(filtroStatus) lista = lista.filter(v=>statusPagamentoVenda(v)===filtroStatus);
+  if(filtroVendasLotes.length) lista = lista.filter(v=>filtroVendasLotes.includes(v.loteId));
+  if(filtroVendasStatus.length) lista = lista.filter(v=>filtroVendasStatus.includes(statusPagamentoVenda(v)));
   document.getElementById('lista-vendas').innerHTML = lista.length ? lista.map(vendaCardHtml).join('') : '<div class="empty">Nenhuma venda encontrada</div>';
 }
+function abrirFiltroLote(){ renderVendas(); openModal('modal-filtro-lote'); }
+function abrirFiltroStatus(){ renderVendas(); openModal('modal-filtro-status'); }
+function toggleFiltroLote(id){
+  const idx = filtroVendasLotes.indexOf(id);
+  if(idx===-1) filtroVendasLotes.push(id); else filtroVendasLotes.splice(idx,1);
+  renderVendas();
+}
+function toggleFiltroStatus(status){
+  const idx = filtroVendasStatus.indexOf(status);
+  if(idx===-1) filtroVendasStatus.push(status); else filtroVendasStatus.splice(idx,1);
+  renderVendas();
+}
+function limparFiltroLote(){ filtroVendasLotes=[]; renderVendas(); }
+function limparFiltroStatus(){ filtroVendasStatus=[]; renderVendas(); }
 
 function abrirDetalheVenda(id){
   vendaDetalheId = id;
