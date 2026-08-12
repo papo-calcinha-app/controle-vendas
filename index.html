@@ -425,14 +425,16 @@ label.btn{display:flex}
 <div class="modal-overlay" id="modal-cliente">
   <div class="modal">
     <div class="modal-title">Cliente</div>
-    <div class="slabel">Nome</div>
-    <input type="text" id="cliente-nome" class="field-input">
-    <div class="slabel" style="margin-top:12px">Telefone (opcional)</div>
-    <input type="text" id="cliente-telefone" class="field-input" placeholder="DDD + número">
-    <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
-    <textarea id="cliente-obs" class="field-input" rows="2"></textarea>
-    <button class="btn btn-primary mt16" onclick="salvarCliente()">💾 Salvar</button>
-    <button class="btn btn-ghost mt8" onclick="closeModal('modal-cliente')">Cancelar</button>
+    <form id="form-cliente" onsubmit="event.preventDefault();salvarCliente()">
+      <div class="slabel">Nome</div>
+      <input type="text" id="cliente-nome" class="field-input" name="name" autocomplete="name">
+      <div class="slabel" style="margin-top:12px">Telefone (opcional)</div>
+      <input type="tel" id="cliente-telefone" class="field-input" name="tel" autocomplete="tel" placeholder="DDD + número">
+      <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
+      <textarea id="cliente-obs" class="field-input" rows="2"></textarea>
+      <button type="submit" class="btn btn-primary mt16">💾 Salvar</button>
+      <button type="button" class="btn btn-ghost mt8" onclick="closeModal('modal-cliente')">Cancelar</button>
+    </form>
   </div>
 </div>
 
