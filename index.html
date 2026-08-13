@@ -258,21 +258,25 @@ label.btn{display:flex}
         <input type="text" id="lancar-beneficiario" class="field-input" placeholder="Ex: irmã, mãe...">
       </div>
 
-      <div class="slabel" style="margin-top:16px">Quantidade de peças</div>
-      <input type="number" id="lancar-qtd" class="field-input" min="1">
-
-      <div class="slabel" style="margin-top:16px">Valor de etiqueta (preço do produto)</div>
-      <input type="text" id="lancar-valor" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+        <div>
+          <div class="slabel">Quantidade</div>
+          <input type="number" id="lancar-qtd" class="field-input" min="1">
+        </div>
+        <div>
+          <div class="slabel">Valor de etiqueta</div>
+          <input type="text" id="lancar-valor" class="field-input" inputmode="numeric" placeholder="R$ 0,00" oninput="mascaraValor(this)">
+        </div>
+      </div>
 
       <div style="position:relative;margin-top:16px">
         <svg class="icon" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--text2);pointer-events:none"><use href="#i-cal"/></svg>
         <input type="date" id="lancar-data" class="field-input" style="text-align:center;padding-left:40px;padding-right:40px">
       </div>
 
-      <div class="slabel" style="margin-top:16px">Observações (opcional)</div>
-      <input type="text" id="lancar-obs" class="field-input" placeholder="Ex: sutiã rendado preto">
+      <input type="text" id="lancar-obs" class="field-input mt16" placeholder="Observações (opcional) — ex: sutiã rendado preto">
 
-      <div class="slabel" style="margin-top:16px">Foto do produto (etiqueta que a cliente mandou)</div>
+      <div class="slabel" style="margin-top:16px">Foto da etiqueta</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="drop" onclick="document.getElementById('lancar-foto-camera').click()">
           <div class="di">📷</div>Tirar foto
@@ -285,7 +289,7 @@ label.btn{display:flex}
       <input type="file" id="lancar-foto-galeria" accept="image/*" style="display:none" onchange="attachFotoLancar(event)">
       <div id="lancar-fotos-list"></div>
 
-      <div class="slabel" style="margin-top:16px">Link do produto (QR code da etiqueta)</div>
+      <div class="slabel" style="margin-top:16px">Link do produto</div>
       <div id="lancar-link-input-row" style="display:flex;gap:8px">
         <button type="button" onclick="iniciarQR('lancar')" id="lancar-qr-area" title="Escanear QR code da etiqueta" class="qr-btn">
           <svg class="icon"><use href="#i-qr"/></svg>
@@ -364,20 +368,36 @@ label.btn{display:flex}
     <div class="modal-title">Lote</div>
     <div class="slabel">Nome do lote</div>
     <input type="text" id="lote-nome" class="field-input">
-    <div class="slabel" style="margin-top:12px">Fornecedor (opcional)</div>
-    <input type="text" id="lote-fornecedor" class="field-input">
-    <div class="slabel" style="margin-top:12px">Data de recebimento</div>
-    <input type="date" id="lote-data-recebimento" class="field-input">
-    <div class="slabel" style="margin-top:12px">Data prevista de devolução (opcional)</div>
-    <input type="date" id="lote-data-devolucao" class="field-input">
-    <div class="slabel" style="margin-top:12px">Quantidade total de peças</div>
-    <input type="number" id="lote-quantidade" class="field-input" min="1">
-    <div class="slabel" style="margin-top:12px">Comissão (% que fica com ela sobre cada venda)</div>
-    <input type="number" id="lote-comissao" class="field-input" min="0" max="100" step="0.1" placeholder="Ex: 30">
-    <div class="slabel" style="margin-top:12px">Bônus de pontualidade na devolução (%, opcional)</div>
-    <input type="number" id="lote-bonus" class="field-input" min="0" max="100" step="0.1" placeholder="Ex: 5 (desconto no repasse se devolver no prazo)">
-    <div class="slabel" style="margin-top:12px">Observações (opcional)</div>
-    <textarea id="lote-obs" class="field-input" rows="2"></textarea>
+    <input type="text" id="lote-fornecedor" class="field-input mt8" placeholder="Fornecedor (opcional)">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <div>
+        <div class="slabel">Recebimento</div>
+        <input type="date" id="lote-data-recebimento" class="field-input">
+      </div>
+      <div>
+        <div class="slabel">Devolução prevista</div>
+        <input type="date" id="lote-data-devolucao" class="field-input">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+      <div>
+        <div class="slabel">Peças</div>
+        <input type="number" id="lote-quantidade" class="field-input" min="1">
+      </div>
+      <div>
+        <div class="slabel">Comissão %</div>
+        <input type="number" id="lote-comissao" class="field-input" min="0" max="100" step="0.1" placeholder="30">
+      </div>
+      <div>
+        <div class="slabel">Bônus %</div>
+        <input type="number" id="lote-bonus" class="field-input" min="0" max="100" step="0.1" placeholder="5">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.4">Comissão: % que fica com ela por venda. Bônus (opcional): desconto extra no repasse se devolver no prazo.</div>
+
+    <textarea id="lote-obs" class="field-input mt16" rows="2" placeholder="Observações (opcional)"></textarea>
     <button class="btn btn-primary mt16" onclick="salvarLote()">💾 Salvar</button>
     <button class="btn btn-ghost mt8" onclick="closeModal('modal-lote')">Cancelar</button>
   </div>
@@ -458,14 +478,19 @@ label.btn{display:flex}
   <div class="modal">
     <div class="modal-title" id="vd-titulo"></div>
     <div class="info-card" style="font-size:13px" id="vd-lote"></div>
-    <div class="slabel">Quantidade de peças</div>
-    <input type="number" id="vd-qtd" class="field-input" min="1">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <div class="slabel">Quantidade</div>
+        <input type="number" id="vd-qtd" class="field-input" min="1">
+      </div>
+      <div>
+        <div class="slabel">Data</div>
+        <input type="date" id="vd-data" class="field-input">
+      </div>
+    </div>
     <div class="slabel" style="margin-top:12px">Valor total</div>
     <input type="text" id="vd-valor" class="field-input" inputmode="numeric" oninput="mascaraValor(this)">
-    <div class="slabel" style="margin-top:12px">Data</div>
-    <input type="date" id="vd-data" class="field-input">
-    <div class="slabel" style="margin-top:12px">Observações</div>
-    <input type="text" id="vd-obs" class="field-input">
+    <input type="text" id="vd-obs" class="field-input" style="margin-top:12px" placeholder="Observações">
     <div class="slabel" style="margin-top:16px">Fotos</div>
     <div id="vd-fotos-list"></div>
     <div id="vd-link-area"></div>
